@@ -5,13 +5,15 @@ In `.devcontainer/docker-compose.yml`, replace it with `imresamu/postgis:17-3.5-
 
 Load the directory in Vs-Code and press F1. And Run the command: `Dev Containers: Rebuild Containers` after a while you should see a terminal.
 
-Copy .env.development.example to .env.development (in root project folder) 
-
-This insure your .env.development are not synced to github
+Now you can create/prepare the Database (this need to be done once):
+```bash
+bundle exec rails db:prepare
+```
 
 Afterwards you can run sidekiq:
 ```bash
 bundle exec sidekiq
+
 ```
 
 And in a second terminal the dawarich-app:
