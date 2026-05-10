@@ -1,41 +1,53 @@
-# Base-Image for Ruby and Node.js
-FROM ruby:3.4.6-alpine
+FROM ruby:3.4.6-slim
+
+ARG RAILS_ENV=development
 
 ENV APP_PATH=/var/app
 ENV BUNDLE_VERSION=2.5.21
 ENV BUNDLE_PATH=/usr/local/bundle/gems
-ENV TMP_PATH=/tmp/
+ENV GEM_HOME=/usr/local/bundle/gems
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_PORT=3000
+ENV PATH="${BUNDLE_PATH}/bin:${PATH}"
 
-# Install dependencies for application
-RUN apk -U add --no-cache \
-    build-base \
+RUN apt-get update -qq \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    build-essential \
     git \
-    postgresql-dev \
     postgresql-client \
+    libpq-dev \
     libxml2-dev \
     libxslt-dev \
-    nodejs \
-    yarn \
+    libyaml-dev \
+    libgeos-dev libgeos++-dev \
     imagemagick \
     tzdata \
     less \
-    yaml-dev \
-    # gcompat for nokogiri on mac m1
-    gcompat \
-    && rm -rf /var/cache/apk/* \
-    && mkdir -p $APP_PATH
+    libjemalloc2 libjemalloc-dev \
+    cmake \
+    ca-certificates \
+    && mkdir -p $APP_PATH \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN gem update --system 3.6.2 && gem install bundler --version "$BUNDLE_VERSION" \
-    && rm -rf $GEM_HOME/cache/*
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+    echo "/usr/lib/x86_64-linux-gnu/libjemalloc.so.2" > /etc/ld.so.preload; \
+    else \
+    echo "/usr/lib/aarch64-linux-gnu/libjemalloc.so.2" > /etc/ld.so.preload; \
+    fi
 
-# FIXME It would be a good idea to use a other user than root, but this lead to permission error on export and maybe more yet.
-# RUN adduser -D -h ${APP_PATH} vscode
-USER root
+ENV RUBY_YJIT_ENABLE=1
 
-# Navigate to app directory
 WORKDIR $APP_PATH
+
+COPY Gemfile Gemfile.lock .ruby-version /vendor ./
+
+COPY ./docker/web-entrypoint.devcontainer.sh /usr/local/bin/web-entrypoint.sh
+COPY ./docker/sidekiq-entrypoint.devcontainer.sh /usr/local/bin/sidekiq-entrypoint.sh
+RUN chmod +x /usr/local/bin/*.sh
 
 EXPOSE $RAILS_PORT
 
+ENTRYPOINT [ "bundle", "exec" ]

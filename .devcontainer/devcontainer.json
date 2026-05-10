@@ -1,17 +1,31 @@
 {
-  "name": "Ruby and Node DevContainer",
-  "dockerComposeFile": ["docker-compose.yml"],
-  "service": "dawarich_dev",
-  "settings": {
-    "terminal.integrated.defaultProfile.linux": "bash"
+  "name": "Dawarich Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dawarich_app",
+  "workspaceFolder": "/var/app",
+  "containerEnv": {
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
   },
-  "extensions": [
-    "rebornix.ruby", // Ruby-Support
-    "esbenp.prettier-vscode", // Prettier for JS-Formating
-    "dbaeumer.vscode-eslint" // ESLint for JavaScript
-  ],
-  "postCreateCommand": "yarn install && bundle config set --local path 'vendor/bundle' && bundle install --jobs 20 --retry 5",
-  "forwardPorts": [3000], // Redirect to Rails-App-Server
-  "remoteUser": "root",
-  "workspaceFolder": "/var/app"
+  "features": {
+      "ghcr.io/devcontainers/features/node:2.0.0": {
+          "version": "lts",
+          "installYarn": true
+      }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Shopify.ruby-lsp",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "KoichiSasada.vscode-rdbg" 
+      ]
+    }
+  },
+  "forwardPorts": [3000, 5432, 6379, 12345, 12346], // Web, DB, and Redis, debugging ports
+  "portsAttributes": {
+    "12345": { "label": "Ruby Debugger: Rails", "onAutoForward": "silent" },
+    "12346": { "label": "Ruby Debugger: Sidekiq", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "bundle install && yarn install --ignore-engines"
 }
