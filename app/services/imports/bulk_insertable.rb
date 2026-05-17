@@ -9,6 +9,16 @@ module Imports
     def bulk_insert_points(batch)
       return 0 if batch.empty?
 
+      # --- NEW: Delete overlaps for the current batch ---
+      times = batch.map { |r| r[:timestamp] }.compact
+      if times.any?
+        deleted = Point.where(user_id: user_id, timestamp: times.min..times.max).delete_all
+        if deleted.positive?
+          Rails.logger.info "[#{importer_name} Importer] Batch Cleanup: Deleted #{deleted} overlapping points."
+        end
+      end
+      # --------------------------------------------------
+
       unique_batch = batch.compact.uniq { |record| [record[:lonlat], record[:timestamp], record[:user_id]] }
 
       result = Point.upsert_all(
