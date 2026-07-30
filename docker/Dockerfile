@@ -42,7 +42,6 @@ RUN apt-get update -qq \
     libyaml-dev \
     zlib1g-dev \
     libgeos-dev libgeos++-dev \
-    imagemagick \
     tzdata \
     less \
     libjemalloc2 libjemalloc-dev \
@@ -127,6 +126,8 @@ RUN mkdir -p tmp/pids tmp/cache tmp/sockets \
 RUN cp -r public /tmp/public_assets
 
 # Copy entrypoint scripts and grant execution permissions
+COPY ./docker/entrypoint-env-guard.sh /usr/local/bin/entrypoint-env-guard.sh
+
 COPY ./docker/web-entrypoint.sh /usr/local/bin/web-entrypoint.sh
 RUN chmod +x /usr/local/bin/web-entrypoint.sh
 
