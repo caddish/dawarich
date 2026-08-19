@@ -31,11 +31,12 @@ class GoogleMaps::SemanticHistoryImporter
 
     Point.upsert_all(
       records,
-      unique_by: %i[lonlat timestamp user_id],
+      unique_by: %i[user_id timestamp lonlat],
       returning: false,
       on_duplicate: :skip
     )
     # rubocop:enable Rails/SkipsModelValidations
+    Points::TileEpoch.bump(user_id, timestamps: records.map { |record| record[:timestamp] })
   rescue StandardError => e
     create_notification(I18n.t('services.google_maps.semantic_history_importer.batch_failed', message: e.message))
   end

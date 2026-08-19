@@ -91,7 +91,7 @@ class Users::ImportData::Points
     begin
       result = Point.upsert_all(
         normalized_batch,
-        unique_by: %i[lonlat timestamp user_id],
+        unique_by: %i[user_id timestamp lonlat],
         returning: %w[id],
         on_duplicate: :skip
       )
@@ -99,6 +99,11 @@ class Users::ImportData::Points
 
       batch_created = result&.count.to_i
       @total_created += batch_created
+
+      if batch_created.positive?
+        timestamps = normalized_batch.map { |row| row['timestamp'] || row[:timestamp] }
+        Points::TileEpoch.bump(user.id, timestamps: timestamps)
+      end
 
       logger.debug(
         "Processed batch of #{@buffer.size} points, created #{batch_created}, total created: #{@total_created}"

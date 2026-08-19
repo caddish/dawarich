@@ -68,7 +68,8 @@ RSpec.describe Users::SafeSettings do
             visit_radius_meters: 100,
             visit_min_points: 3,
             visit_min_duration_minutes: 5,
-            point_dragging_enabled: false
+            point_dragging_enabled: false,
+            points_tiled_rendering: false
           }
         )
       end
@@ -152,7 +153,8 @@ RSpec.describe Users::SafeSettings do
             'visit_radius_meters' => 100,
             'visit_min_points' => 3,
             'visit_min_duration_minutes' => 5,
-            'point_dragging_enabled' => false
+            'point_dragging_enabled' => false,
+            'points_tiled_rendering' => false
           }
         )
       end
@@ -206,9 +208,54 @@ RSpec.describe Users::SafeSettings do
             visit_radius_meters: 100,
             visit_min_points: 3,
             visit_min_duration_minutes: 5,
-            point_dragging_enabled: false
+            point_dragging_enabled: false,
+            points_tiled_rendering: false
           }
         )
+      end
+    end
+  end
+
+  describe '#minutes_between_routes' do
+    let(:safe_settings) { described_class.new(settings) }
+
+    context 'with a blank value' do
+      let(:settings) { { 'minutes_between_routes' => '' } }
+
+      it 'falls back to the default' do
+        expect(safe_settings.minutes_between_routes).to eq(30)
+      end
+    end
+
+    context 'with a zero value' do
+      let(:settings) { { 'minutes_between_routes' => 0 } }
+
+      it 'falls back to the default' do
+        expect(safe_settings.minutes_between_routes).to eq(30)
+      end
+    end
+
+    context 'with a negative value' do
+      let(:settings) { { 'minutes_between_routes' => '-5' } }
+
+      it 'falls back to the default' do
+        expect(safe_settings.minutes_between_routes).to eq(30)
+      end
+    end
+
+    context 'with a value above one day' do
+      let(:settings) { { 'minutes_between_routes' => '2000' } }
+
+      it 'clamps to 1440 minutes' do
+        expect(safe_settings.minutes_between_routes).to eq(1440)
+      end
+    end
+
+    context 'with a valid string value' do
+      let(:settings) { { 'minutes_between_routes' => '45' } }
+
+      it 'returns the integer value' do
+        expect(safe_settings.minutes_between_routes).to eq(45)
       end
     end
   end
@@ -705,6 +752,36 @@ RSpec.describe Users::SafeSettings do
 
     it 'is included in #config' do
       expect(described_class.new({}).config).to include(point_dragging_enabled: false)
+    end
+  end
+
+  describe '#points_tiled_rendering?' do
+    it 'returns false when missing' do
+      expect(described_class.new({}).points_tiled_rendering?).to be false
+    end
+
+    it 'returns false when explicitly nil' do
+      expect(described_class.new({ 'points_tiled_rendering' => nil }).points_tiled_rendering?).to be false
+    end
+
+    it 'returns true for true' do
+      expect(described_class.new({ 'points_tiled_rendering' => true }).points_tiled_rendering?).to be true
+    end
+
+    it 'returns true for "1"' do
+      expect(described_class.new({ 'points_tiled_rendering' => '1' }).points_tiled_rendering?).to be true
+    end
+
+    it 'returns false for "0"' do
+      expect(described_class.new({ 'points_tiled_rendering' => '0' }).points_tiled_rendering?).to be false
+    end
+
+    it 'returns false for "false"' do
+      expect(described_class.new({ 'points_tiled_rendering' => 'false' }).points_tiled_rendering?).to be false
+    end
+
+    it 'is included in #config' do
+      expect(described_class.new({}).config).to include(points_tiled_rendering: false)
     end
   end
 
