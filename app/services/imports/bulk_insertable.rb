@@ -9,61 +9,34 @@ module Imports
     def bulk_insert_points(batch)
       return 0 if batch.empty?
       
-      # --- NEW: Delete overlaps for the current batch ---
-      times = batch.map { |r| r[:timestamp] }.compact
-      if times.any?
-        # 1. Fetch the overlapping point IDs for this specific user
-        point_ids = Point.where(user_id: user_id, timestamp: times.min..times.max).pluck(:id)
+        # --- Delete overlaps for the current batch ---
+        BULK_DESTROY_MAX = 5_000
+        times = batch.map { |r| r[:timestamp] }.compact
 
-        if point_ids.any?
-          # Mirror your BULK_DESTROY_MAX constant rule if you want the same constraint
-          # Define this constant at the top of your class or replace with your hardcoded value (e.g., 5000)
-          bulk_destroy_max = 5000
-          
-          # Optional guard check: slice into batches if you exceed the controller limit, 
-          # or process it in chunks using point_ids.each_slice(bulk_destroy_max)
-          if point_ids.size > bulk_destroy_max
-            Rails.logger.warn "[#{importer_name} Importer] Large cleanup required: #{point_ids.size} points exceeds safety limit. Slicing execution."
-          end
+        if times.any?
+          point_ids = Point.where(user_id: user_id, timestamp: times.min..times.max).pluck(:id)
 
-          affected_track_ids = nil
-          destroyed = nil
+          if point_ids.any?
+            if point_ids.size > BULK_DESTROY_MAX
+              Rails.logger.warn(
+                "[#{importer_name} Importer] Large cleanup required: #{point_ids.size} points " \
+                "exceeds safety limit. Slicing execution."
+              )
+            end
 
-          # 2. Database transaction blocks execution until finished (Synchronous)
-          ActiveRecord::Base.transaction do
-            affected_track_ids = Point.where(user_id: user_id, id: point_ids)
-                                      .where.not(track_id: nil)
-                                      .distinct
-                                      .pluck(:track_id)
-                                      
-            destroyed = Point.where(user_id: user_id, id: point_ids).destroy_all
-          end
+            point_ids.each_slice(BULK_DESTROY_MAX) do |ids_slice|
+              destroyed = Points::Destroyer.new(user, ids_slice).call
 
-          deleted_count = destroyed.count
+              next if destroyed.empty?
 
-          if deleted_count.positive?
-            # 3. Synchronously decrease user dashboard counts
-            User.update_counters(user_id, points_count: -deleted_count)
-
-            # 4. Extract unique Year/Month pairs to recalculate analytics dashboard
-            destroyed
-              .map { |p| Time.zone.at(p.timestamp) }
-              .map { |ts| [ts.year, ts.month] }
-              .uniq
-              .each { |year, month| Stats::CalculatingJob.perform_later(user_id, year, month) }
-          end
-
-          # 5. Enqueue track length/speed corrections
-          if affected_track_ids.any?
-            Rails.logger.info(
-              "[#{importer_name} Importer] Batch Cleanup deleted #{deleted_count} points, " \
-              "enqueuing Tracks::RecalculateJob for #{affected_track_ids.size} tracks."
-            )
-            affected_track_ids.each { |track_id| Tracks::RecalculateJob.perform_later(track_id) }
+              Rails.logger.info(
+                "[#{importer_name} Importer] Batch Cleanup deleted #{destroyed.count} overlapping points " \
+                "(#{ids_slice.size} candidates)."
+              )
+            end
           end
         end
-      end
-      # --------------------------------------------------
+        # --------------------------------------------------
 
       compacted = batch.compact
       unique_batch = compacted
