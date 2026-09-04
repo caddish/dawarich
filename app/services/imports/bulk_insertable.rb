@@ -6,7 +6,12 @@ module Imports
 
     private
 
+    def destroyer_user
+      @destroyer_user ||= respond_to?(:import) && import ? import.user : User.find(user_id)
+    end
+
     BULK_DESTROY_MAX = 5_000
+    
     def bulk_insert_points(batch)
       return 0 if batch.empty?
       
@@ -25,7 +30,7 @@ module Imports
             end
 
             point_ids.each_slice(BULK_DESTROY_MAX) do |ids_slice|
-              destroyed = Points::Destroyer.new(user, ids_slice).call
+              destroyed = Points::Destroyer.new(destroyer_user, ids_slice).call
 
               next if destroyed.empty?
 
