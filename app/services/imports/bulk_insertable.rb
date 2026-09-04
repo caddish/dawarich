@@ -6,11 +6,11 @@ module Imports
 
     private
 
+    BULK_DESTROY_MAX = 5_000
     def bulk_insert_points(batch)
       return 0 if batch.empty?
       
         # --- Delete overlaps for the current batch ---
-        BULK_DESTROY_MAX = 5_000
         times = batch.map { |r| r[:timestamp] }.compact
 
         if times.any?
